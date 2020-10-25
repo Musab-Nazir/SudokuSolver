@@ -2,6 +2,7 @@
   (:require [clojure.set :as cs])
   (:gen-class))
 
+;; Sample board I'm using for dev purposes
 (def board 
   [[5 3 0 0 7 0 0 0 0]
    [6 0 0 1 9 5 0 0 0]
@@ -14,7 +15,8 @@
    [0 0 0 0 8 0 0 7 9]])
 
 ;; Valid list of nums in a sudoku game
-(def possible-nums (into [] (range 1 10)))
+(def possible-nums 
+  (into [] (range 1 10)))
 
 ;; Given a row vector, it will return the numbers from the possible values
 ;; that have not appeared in that row
@@ -24,7 +26,7 @@
              (not (some #{num} vec)))
            possible-nums))
 
-;; given a row and col number returns a set of valid nums 
+;; Given a row and col number returns a set of valid nums 
 ;; for that position if that position is free else returns 0
 (defn take-guess
   [row-num col-num]
@@ -41,17 +43,27 @@
       (apply sorted-set (cs/intersection row-set col-set))
       0)))
 
-(defn check-row
+;; Since each row/col can only have unique 1-9 values the sum needs to be exactly 45
+(defn check-vec
   [row]
   (if (= (apply + row) 45)
     true
     false))
+
+;; Flattens a 2D vec for a 3x3 box and checks if it is valid.
+;; The same rules apply as a regular row/col i.e unique 1-9 values
+(defn check-box
+  [box]
+  (let [flattened (into [] (flatten box))]
+    (print flattened)
+    (check-vec flattened)))
 
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
   (println "Hello  World!"))
 
+;; Solution to the dev example board
 #_(def solution
   [[5 3 4 6 7 8 9 1 2]
    [6 7 2 1 9 5 3 4 8]
