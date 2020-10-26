@@ -5,11 +5,12 @@ translating imperative algorithms to a more declarative functional
 style. Right now it is command line only. I may add an interactive 
 web front end later.
 
-## Installation
+## Standalone usage
+Download the `sudoku.jar` and `board.edn` file from the [Releases](https://github.com/Musab-Nazir/SudokuSolver/releases). Update the board in the `board.edn` file in needed and run the program via:
 
-Download from https://github.com/musab/sudoku
+    $ java -jar sudoku.jar
 
-## Usage
+## Dev oriented usage
 
 Assuming you have clojure (1.10.1) installed, you can use the following commands.
 
