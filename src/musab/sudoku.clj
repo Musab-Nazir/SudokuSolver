@@ -1,35 +1,8 @@
 (ns musab.sudoku
   (:require [clojure.set :as cs]
-            [clojure.pprint :as pp])
+            [clojure.pprint :refer [pprint]]
+            [clojure.edn :as edn])
   (:gen-class))
-
-;; Sample board I'm using for dev purposes
-(def board 
-  [[5 3 0  0 7 0  0 0 0]
-   [6 0 0  1 9 5  0 0 0]
-   [0 9 8  0 0 0  0 6 0]
-   
-   [8 0 0  0 6 0  0 0 3]
-   [4 0 0  8 0 3  0 0 1]
-   [7 0 0  0 2 0  0 0 6]
-   
-   [0 6 0  0 0 0  2 8 0]
-   [0 0 0  4 1 9  0 0 5]
-   [0 0 0  0 8 0  0 7 9]])
-
-;; Solution to the dev example board
-(def solution
-    [[5 3 4  6 7 8  9 1 2]
-     [6 7 2  1 9 5  3 4 8]
-     [1 9 8  3 4 2  5 6 7]
-     
-     [8 5 9  7 6 1  4 2 3]
-     [4 2 6  8 5 3  7 9 1]
-     [7 1 3  9 2 4  8 5 6]
-     
-     [9 6 1  5 3 7  2 8 4]
-     [2 8 7  4 1 9  6 3 5]
-     [3 4 5  2 8 6  1 7 9]])
 
 (defn get-possibilities-from-vec
   "Given a row vector, it will return the numbers from the possible values 
@@ -103,11 +76,23 @@
     ;; if no more 0 on the board we have a solution
     ;; else we contunue recursion
     (if (or (nil? row) (nil? col))
-      (to-array  board-state)
+      (to-array board-state)
       (flatten (mapv #(solve (assoc-in board-state [row col] %))
             (get-valid-nums [(inc row) (inc col)] board-state))))))
 
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
-  (println "Hello  World!"))
+  (println "Reading board.edn")
+  
+  (def input-board (edn/read-string 
+                    (slurp "./board.edn")))
+  
+  (print "Input board: \n")
+  
+  (pprint (input-board :input))
+  
+  (print "Solving... \n")
+  
+  (pprint (mapv vec (first (solve (input-board :input)))))
+  )
