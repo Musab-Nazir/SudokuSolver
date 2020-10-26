@@ -1,6 +1,9 @@
 # sudoku
 
-FIXME: my new application.
+A simple project I started for fun and to get extra practice at
+translating imperative algorithms to a more declarative functional
+style. Right now it is command line only. I may add an interactive 
+web front end later.
 
 ## Installation
 
@@ -8,7 +11,7 @@ Download from https://github.com/musab/sudoku
 
 ## Usage
 
-FIXME: explanation
+Assuming you have clojure (1.10.1) installed, you can use the following commands.
 
 Run the project directly:
 
@@ -26,21 +29,12 @@ Run that uberjar:
 
     $ java -jar sudoku.jar
 
-## Options
+## Input different board states
 
-FIXME: listing of options this app accepts.
+By default the board.edn file has a board state added under the input key. Apparently this particular puzzle is the hardest you can find. Feel free to modify the file
 
-## Examples
+Follow the format of the example 2D array/vector for board.edn
 
-...
-
-### Bugs
-
-...
-
-### Any Other Sections
-### That You Think
-### Might be Useful
 
 ## License
 
