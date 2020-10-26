@@ -6,7 +6,7 @@ style. Right now it is command line only. I may add an interactive
 web front end later.
 
 ## Standalone usage
-Download the `sudoku.jar` and `board.edn` file from the [Releases](https://github.com/Musab-Nazir/SudokuSolver/releases). Update the board in the `board.edn` file in needed and run the program via:
+Download the `sudoku.jar` and `board.edn` file from the [Releases](https://github.com/Musab-Nazir/SudokuSolver/releases). Update the board in the `board.edn` file if needed and run the program via:
 
     $ java -jar sudoku.jar
 
