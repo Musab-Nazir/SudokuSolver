@@ -17,7 +17,7 @@
    [0 0 0  0 8 0  0 7 9]])
 
 ;; Solution to the dev example board
-#_(def solution
+(def solution
     [[5 3 4  6 7 8  9 1 2]
      [6 7 2  1 9 5  3 4 8]
      [1 9 8  3 4 2  5 6 7]
@@ -30,20 +30,16 @@
      [2 8 7  4 1 9  6 3 5]
      [3 4 5  2 8 6  1 7 9]])
 
-;; Valid list of nums in a sudoku game
-(def valid-nums 
-  (into [] (range 1 10)))
-
-;; Given a row vector, it will return the numbers from the possible values
-;; that have not appeared in that row
 (defn get-possibilities-from-vec
+  "Given a row vector, it will return the numbers from the possible values 
+   that have not appeared in that row"
   [vec]
   (filterv (fn [num]
              (not (some #{num} vec)))
-           valid-nums))
+           (into [] (range 1 10))))
 
-;; Gets a flat vector for the box associated with the coord provided
 (defn get-box-values
+  "Gets a flat vector for the box associated with the coord provided"
   [[row-num col-num] board-state]
   (let [row-range (cond
                     (<= row-num 3) (range 0 3)
@@ -65,15 +61,15 @@
              row-range)]
     (into [] box)))
 
-;; Given a row and col number returns a set of valid nums 
-;; for that position if that position is free else returns 0
 (defn get-valid-nums
+  "Given a row and col number returns a set of valid nums 
+   for that position if that position is free else returns 0"
   [[row-num col-num] board-state]
   (let [row (nth board-state (- row-num 1))
-        col (into [] 
-                  (mapv 
-                   (fn [row] 
-                     (nth row (- col-num 1))) 
+        col (into []
+                  (mapv
+                   (fn [row]
+                     (nth row (- col-num 1)))
                    board-state))
         box-vals (get-box-values [row-num col-num] board-state)
         current-num (nth row (- col-num 1))
@@ -82,16 +78,16 @@
         box-set (into #{} (get-possibilities-from-vec box-vals))]
     (if (= current-num 0)
       (apply sorted-set (cs/intersection row-set col-set box-set))
-      0)))
+      #{})))
 
-;; Checks if a provided number n is possible given a row and col position
-;; Uses get-valid-nums internally
 (defn possible-number?
+  "Checks if a provided number n is possible given a row and col position.
+   Uses get-valid-nums internally"
   [[row-num col-num] n board-state]
   (if (some #{n} (get-valid-nums [row-num col-num] board-state)) true false))
 
-;; Get the coordinates of the first position on the board that is 0
 (defn get-first-blank-coords
+  "Get the coordinates of the first position on the board that is 0"
   [board-state]
   (first
    (remove nil?
@@ -102,9 +98,12 @@
                   [row col])))))
 
 (defn solve [board-state]
-  (let [[row col] (get-first-blank-coords board-state)]
-    (map #(solve (assoc-in board-state [row col] %))
-         (get-valid-nums [(inc row) (inc col)] board-state))))
+  (let [coords (get-first-blank-coords board-state)
+        [row col] coords]
+    (if (= coords nil)
+      board-state
+      (mapv #(solve (assoc-in board-state [row col] %))
+            (get-valid-nums [(inc row) (inc col)] board-state)))))
 
 (defn -main
   "I don't do a whole lot ... yet."
