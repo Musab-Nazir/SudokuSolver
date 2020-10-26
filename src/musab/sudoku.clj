@@ -103,10 +103,9 @@
     ;; if no more 0 on the board we have a solution
     ;; else we contunue recursion
     (if (or (nil? row) (nil? col))
-      (pp/pprint board-state)
-      (mapv #(solve (assoc-in board-state [row col] %))
-            (get-valid-nums [(inc row) (inc col)] board-state))))
-  board-state)
+      (to-array  board-state)
+      (flatten (mapv #(solve (assoc-in board-state [row col] %))
+            (get-valid-nums [(inc row) (inc col)] board-state))))))
 
 (defn -main
   "I don't do a whole lot ... yet."
