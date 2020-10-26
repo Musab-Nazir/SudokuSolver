@@ -1,5 +1,6 @@
 (ns musab.sudoku
-  (:require [clojure.set :as cs])
+  (:require [clojure.set :as cs]
+            [clojure.pprint :as pp])
   (:gen-class))
 
 ;; Sample board I'm using for dev purposes
@@ -98,12 +99,14 @@
                   [row col])))))
 
 (defn solve [board-state]
-  (let [coords (get-first-blank-coords board-state)
-        [row col] coords]
-    (if (= coords nil)
-      board-state
+  (let [[row col] (get-first-blank-coords board-state)]
+    ;; if no more 0 on the board we have a solution
+    ;; else we contunue recursion
+    (if (or (nil? row) (nil? col))
+      (pp/pprint board-state)
       (mapv #(solve (assoc-in board-state [row col] %))
-            (get-valid-nums [(inc row) (inc col)] board-state)))))
+            (get-valid-nums [(inc row) (inc col)] board-state))))
+  board-state)
 
 (defn -main
   "I don't do a whole lot ... yet."
