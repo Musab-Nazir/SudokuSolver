@@ -32,9 +32,9 @@ Run that uberjar:
 
 ## Input different board states
 
-By default the board.edn file has a board state added under the input key. Apparently this particular puzzle is the hardest you can find. Feel free to modify the file
+By default the board.edn file has a board state added under the input key. Apparently this particular puzzle is the hardest you can find. On my 8 core 16 thread machine it takes ~ 60 seconds, however the runtime depends on the complexty of the puzzle.
 
-Follow the format of the example 2D array/vector for board.edn
+Follow the format of the example 2D array/vector for board.edn for any custom boards you enter
 
 
 ## License

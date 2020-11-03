@@ -1,7 +1,7 @@
 (ns musab.sudoku
-  (:require [clojure.set :as cs]
+  (:require [clojure.set    :as cs]
             [clojure.pprint :refer [pprint]]
-            [clojure.edn :as edn])
+            [clojure.edn    :as edn])
   (:gen-class))
 
 (defn get-possibilities-from-vec
@@ -74,7 +74,7 @@
 (defn solve [board-state]
   (let [[row col] (get-first-blank-coords board-state)]
     ;; if no more 0 on the board we have a solution
-    ;; else we contunue recursion
+    ;; else we continue recursion
     (if (or (nil? row) (nil? col))
       (to-array board-state)
       (flatten (mapv #(solve (assoc-in board-state [row col] %))
@@ -84,15 +84,14 @@
   "I don't do a whole lot ... yet."
   [& args]
   (println "Reading board.edn")
-  
-  (def input-board (edn/read-string 
+
+  (def input-board (edn/read-string
                     (slurp "./board.edn")))
-  
+
   (print "Input board: \n")
-  
+
   (pprint (input-board :input))
-  
-  (print "Solving... \n")
-  
-  (pprint (mapv vec (first (solve (input-board :input)))))
-  )
+
+  (print "Solving...This may take a couple of minutes \n")
+
+  (pprint (mapv vec (first (solve (input-board :input))))))
