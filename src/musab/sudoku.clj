@@ -4,6 +4,30 @@
             [clojure.edn    :as edn])
   (:gen-class))
 
+(declare solve)
+
+;;*****************************************************************************
+;;                                  MAIN
+;;*****************************************************************************
+(defn -main
+  "I don't do a whole lot ... yet."
+  [& args]
+  (println "Reading board.edn")
+
+  (def input-board (edn/read-string
+                    (slurp "./board.edn")))
+
+  (print "Input board: \n")
+
+  (pprint (input-board :input))
+
+  (print "Solving...This may take a couple of minutes \n")
+
+  (pprint (mapv vec (first (solve (input-board :input))))))
+
+;;*****************************************************************************
+;;                            HELPER FUNCTIONS
+;;*****************************************************************************
 (defn get-possibilities-from-vec
   "Given a row vector, it will return the numbers from the possible values 
    that have not appeared in that row"
@@ -79,19 +103,3 @@
       (to-array board-state)
       (flatten (mapv #(solve (assoc-in board-state [row col] %))
             (get-valid-nums [(inc row) (inc col)] board-state))))))
-
-(defn -main
-  "I don't do a whole lot ... yet."
-  [& args]
-  (println "Reading board.edn")
-
-  (def input-board (edn/read-string
-                    (slurp "./board.edn")))
-
-  (print "Input board: \n")
-
-  (pprint (input-board :input))
-
-  (print "Solving...This may take a couple of minutes \n")
-
-  (pprint (mapv vec (first (solve (input-board :input))))))
