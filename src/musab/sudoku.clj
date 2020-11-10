@@ -39,6 +39,7 @@
 (defn get-box-values
   "Gets a flat vector for the box associated with the coord provided"
   [[row-num col-num] board-state]
+  (if (or (nil? row-num) (nil? col-num)) [nil nil]
   (let [row-range (cond
                     (<= row-num 3) (range 0 3)
                     (<= row-num 6) (range 3 6)
@@ -57,7 +58,7 @@
                           (last col-range))))
              []
              row-range)]
-    (into [] box)))
+    (into [] box))))
 
 (def box-cords
   {:1 [1 1]
@@ -147,22 +148,20 @@
                       col (range 9)]
                   [row col])))))
 
-(def recur-count (atom 0))
-(def reset-count (atom 0))
-(reset! recur-count 0)
-(reset! reset-count 0)
+(comment (defn solve-old [board-state]
+  (let [[row col] (get-first-blank-coords board-state)]
+    ;; if no more 0 on the board we have a solution
+    ;; else we continue recursion
+    (if (or (nil? row) (nil? col))
+      (to-array board-state)
+      (flatten (mapv #(solve (assoc-in board-state [row col] %))
+                     (get-valid-nums [(inc row) (inc col)] board-state)))))))
 
 (defn solve [board-state]
   (let [[row col] (get-zero-in-block board-state)]
     ;; if no more 0 on the board we have a solution
     ;; else we continue recursion
     (if (or (nil? row) (nil? col))
-      {:solution (to-array board-state)
-       :iter @recur-count
-       :resets @reset-count}
-      (do 
-        (swap! recur-count inc)
-        (if (empty? (get-valid-nums [row col] board-state))
-          (swap! reset-count inc))
-        (flatten (mapv #(solve (assoc-in board-state [(- row 1) (- col 1)] %))
-            (get-valid-nums [row col] board-state)))))))
+      (to-array board-state)
+      (flatten (mapv #(solve (assoc-in board-state [(- row 1) (- col 1)] %))
+                     (get-valid-nums [row col] board-state))))))
