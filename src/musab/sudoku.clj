@@ -58,11 +58,15 @@
                       #(contains? % k)
                       unitlist)))
             starting-map
-            (keys starting-map))))
+            squares)))
 
 (defn peers-for-squares
   []
-  )
+  (let [unit-map (units-for-squares)]
+    (reduce (fn [m k]
+              (assoc m k (disj (apply cs/union (k unit-map)) k)))
+     {}
+     squares)))
 
 (defn create-board-map
   []
