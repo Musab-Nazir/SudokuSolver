@@ -28,6 +28,52 @@
 ;;*****************************************************************************
 ;;                            HELPER FUNCTIONS
 ;;*****************************************************************************
+(def rows "ABCDEFGHI")
+(def cols "123456789")
+
+(defn cross [A, B]
+  (for [a A b B] (keyword (str a b))))
+
+;;Squares names that will become the keys in our board state map
+(def squares (cross rows cols))
+
+;;units are the groups into which squares are grouped: rows, columns and subsquares
+(def unitlist (map set (concat
+                         (for [c cols] (cross rows [c]))
+                         (for [r rows] (cross [r] cols))
+                         (for [rs (partition 3 rows)
+                               cs (partition 3 cols)] (cross rs cs)))))
+
+(defn units-for-squares
+  []
+  (let [starting-map (reduce
+                      (fn [working-map square-name]
+                        (assoc working-map square-name nil))
+                      {}
+                      squares)]
+    (reduce (fn
+              [m k]
+              (assoc m k
+                     (filterv
+                      #(contains? % k)
+                      unitlist)))
+            starting-map
+            (keys starting-map))))
+
+(defn peers-for-squares
+  []
+  )
+
+(defn create-board-map
+  []
+  (reduce (fn [board-map square-name]
+            (assoc board-map square-name (into [] (range 1 10))))
+          {} squares))
+
+(defn get-peers-for-square
+  [square]
+  )
+
 (defn get-possibilities-from-vec
   "Given a row vector, it will return the numbers from the possible values 
    that have not appeared in that row"
@@ -40,25 +86,25 @@
   "Gets a flat vector for the box associated with the coord provided"
   [[row-num col-num] board-state]
   (if (or (nil? row-num) (nil? col-num)) [nil nil]
-  (let [row-range (cond
-                    (<= row-num 3) (range 0 3)
-                    (<= row-num 6) (range 3 6)
-                    (<= row-num 9) (range 6 9))
-        col-range (cond
+      (let [row-range (cond
+                        (<= row-num 3) (range 0 3)
+                        (<= row-num 6) (range 3 6)
+                        (<= row-num 9) (range 6 9))
+            col-range (cond
                     ;; Due to how subvec works the col ranges have n+1
                     ;; as the last num in the range compared to rows
-                    (<= col-num 3) (range 0 4)
-                    (<= col-num 6) (range 3 7)
-                    (<= col-num 9) (range 6 10))
-        box (reduce
-             (fn [x row-index]
-               (concat x (subvec
-                          (nth board-state row-index)
-                          (first col-range)
-                          (last col-range))))
-             []
-             row-range)]
-    (into [] box))))
+                        (<= col-num 3) (range 0 4)
+                        (<= col-num 6) (range 3 7)
+                        (<= col-num 9) (range 6 10))
+            box (reduce
+                 (fn [x row-index]
+                   (concat x (subvec
+                              (nth board-state row-index)
+                              (first col-range)
+                              (last col-range))))
+                 []
+                 row-range)]
+        (into [] box))))
 
 (def box-cords
   {:1 [1 1]
@@ -85,7 +131,7 @@
         six-box (count-row-num (get-box-values (:6 box-cords) board-state))
         seven-box (count-row-num (get-box-values (:7 box-cords) board-state))
         eight-box (count-row-num (get-box-values (:8 box-cords) board-state))
-        nine-box (count-row-num(get-box-values (:9 box-cords) board-state))
+        nine-box (count-row-num (get-box-values (:9 box-cords) board-state))
         max-num (max first-box second-box third-box fourth-box
                      fifth-box six-box seven-box eight-box nine-box)]
     (some (fn [[key val]]
@@ -101,7 +147,7 @@
   (let [[row col] (get-start-block board-state)
         vals (get-box-values [row col] board-state)
         blank-index (first (keep-indexed (fn [idx v] (if (= 0 v) idx)) vals))]
-    (cond 
+    (cond
       (= blank-index 0) [row col]
       (= blank-index 1) [row (inc col)]
       (= blank-index 2) [row (+ 2 col)]
@@ -149,13 +195,13 @@
                   [row col])))))
 
 (comment (defn solve-old [board-state]
-  (let [[row col] (get-first-blank-coords board-state)]
+           (let [[row col] (get-first-blank-coords board-state)]
     ;; if no more 0 on the board we have a solution
     ;; else we continue recursion
-    (if (or (nil? row) (nil? col))
-      (to-array board-state)
-      (flatten (mapv #(solve (assoc-in board-state [row col] %))
-                     (get-valid-nums [(inc row) (inc col)] board-state)))))))
+             (if (or (nil? row) (nil? col))
+               (to-array board-state)
+               (flatten (mapv #(solve (assoc-in board-state [row col] %))
+                              (get-valid-nums [(inc row) (inc col)] board-state)))))))
 
 (defn solve [board-state]
   (let [[row col] (get-zero-in-block board-state)]

@@ -1,6 +1,6 @@
 (ns musab.sudoku-test
   (:require [clojure.test :refer :all]
-            [musab.sudoku :refer [solve]]))
+            [musab.sudoku :refer [solve solve-new]]))
 
 (def default-boards
   {:1 {:board [[0 0 0  1 0 6  0 0 0]
@@ -52,9 +52,9 @@
 (deftest a-test
   (testing "Tests two examples."
     (is (=
-         (mapv vec (first (solve (get-in default-boards [:1 :board]))))
+         (mapv vec (first (solve-new (get-in default-boards [:1 :board]))))
          (get-in default-boards [:1 :solution])))
 
     (is (=
-         (mapv vec (first (solve (get-in default-boards [:2 :board]))))
+         (mapv vec (first (solve-new (get-in default-boards [:2 :board]))))
          (get-in default-boards [:2 :solution])))))
