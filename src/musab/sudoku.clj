@@ -1,7 +1,8 @@
 (ns musab.sudoku
   (:require [clojure.set    :as cs]
             [clojure.pprint :refer [pprint]]
-            [clojure.edn    :as edn])
+            [clojure.edn    :as edn]
+            [clojure.core.reducers :as r])
   (:gen-class))
 
 (declare solve)
@@ -14,8 +15,8 @@
   [& args]
   (println "Reading board.edn")
 
-  (def input-board (edn/read-string
-                    (slurp "./board.edn")))
+  (def input-board (:input (edn/read-string
+                    (slurp "./board.edn"))))
 
   (print "Input board: \n")
 
@@ -46,12 +47,12 @@
 
 (defn units-for-squares
   []
-  (let [starting-map (reduce
+  (let [starting-map (r/reduce
                       (fn [working-map square-name]
                         (assoc working-map square-name nil))
                       {}
                       squares)]
-    (reduce (fn
+    (r/reduce (fn
               [m k]
               (assoc m k
                      (filterv
@@ -63,20 +64,23 @@
 (defn peers-for-squares
   []
   (let [unit-map (units-for-squares)]
-    (reduce (fn [m k]
+    (r/reduce (fn [m k]
               (assoc m k (disj (apply cs/union (k unit-map)) k)))
      {}
      squares)))
 
-(defn create-board-map
-  []
-  (reduce (fn [board-map square-name]
-            (assoc board-map square-name (into [] (range 1 10))))
-          {} squares))
-
-(defn get-peers-for-square
-  [square]
-  )
+(defn parse-board-state
+  [board-state]
+  (let [board-vals (flatten board-state)
+        val-list (r/reduce
+                  (fn [list v]
+                    (if (not= 0 v)
+                      (conj list #{v})
+                      (conj list (apply sorted-set
+                                        (into #{} (range 1 10))))))
+                  []
+                  board-vals)]
+    (zipmap squares val-list)))
 
 (defn get-possibilities-from-vec
   "Given a row vector, it will return the numbers from the possible values 
