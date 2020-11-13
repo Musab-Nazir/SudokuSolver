@@ -5,7 +5,7 @@
             [clojure.core.reducers :as r])
   (:gen-class))
 
-(declare solve)
+(declare solve assign eliminate! check!)
 
 ;;*****************************************************************************
 ;;                                  MAIN
@@ -16,11 +16,11 @@
   (println "Reading board.edn")
 
   (def input-board (:input (edn/read-string
-                    (slurp "./board.edn"))))
+                            (slurp "./board.edn"))))
 
   (print "Input board: \n")
-
   (pprint (input-board :input))
+
 
   (print "Solving...This may take a couple of minutes \n")
 
@@ -40,47 +40,96 @@
 
 ;;units are the groups into which squares are grouped: rows, columns and subsquares
 (def unitlist (map set (concat
-                         (for [c cols] (cross rows [c]))
-                         (for [r rows] (cross [r] cols))
-                         (for [rs (partition 3 rows)
-                               cs (partition 3 cols)] (cross rs cs)))))
+                        (for [c cols] (cross rows [c]))
+                        (for [r rows] (cross [r] cols))
+                        (for [rs (partition 3 rows)
+                              cs (partition 3 cols)] (cross rs cs)))))
 
-(defn units-for-squares
-  []
+(def units-for-squares
   (let [starting-map (r/reduce
                       (fn [working-map square-name]
                         (assoc working-map square-name nil))
                       {}
                       squares)]
     (r/reduce (fn
-              [m k]
-              (assoc m k
-                     (filterv
-                      #(contains? % k)
-                      unitlist)))
-            starting-map
-            squares)))
+                [m k]
+                (assoc m k
+                       (filterv
+                        #(contains? % k)
+                        unitlist)))
+              starting-map
+              squares)))
 
-(defn peers-for-squares
-  []
-  (let [unit-map (units-for-squares)]
+(def peers-for-squares
+  (let [unit-map units-for-squares]
     (r/reduce (fn [m k]
-              (assoc m k (disj (apply cs/union (k unit-map)) k)))
-     {}
-     squares)))
+                (assoc m k (disj (apply cs/union (k unit-map)) k)))
+              {}
+              squares)))
 
 (defn parse-board-state
   [board-state]
   (let [board-vals (flatten board-state)
-        val-list (r/reduce
-                  (fn [list v]
-                    (if (not= 0 v)
-                      (conj list #{v})
-                      (conj list (apply sorted-set
-                                        (into #{} (range 1 10))))))
-                  []
-                  board-vals)]
-    (zipmap squares val-list)))
+        values (atom (r/reduce
+                  (fn [m square]
+                    (assoc m square (apply sorted-set
+                                      (into #{} (range 1 10)))))
+                  {}
+                  squares))
+        list-of-given (for [[square digit]
+                            (zipmap squares board-vals)
+                            :when ((into #{} (range 1 10)) digit)]
+                        [square digit])]
+    
+    (if (every? (fn [[square digit]] 
+                  (assign values square digit)) 
+                list-of-given)
+      values
+      false)))
+
+(defn assign
+  [values square assignment-val]
+  (let [elimination-candidates (for [v (square @values)
+                                     :when (not (= v assignment-val))] v)]
+    (if (every?
+         #(eliminate! values square %) elimination-candidates)
+      values
+      false)))
+
+(defn eliminate! [values square val]
+  (if (not ((square @values) val)) values ;;if it's already not there nothing to do
+
+      (do
+        (swap! values assoc-in [square] (disj (square @values) val)) ;;remove it
+        (if (= 0 (count (square @values))) ;;no possibilities left
+
+          false                       ;;fail
+          (if (= 1 (count (square @values))) ;; one possibility left
+            (let [d2 (first (square @values))
+                  square-list (for [s2 (square peers-for-squares)] s2)]
+              (if (not (every? #(eliminate! values % d2) square-list))
+                false
+                (check! values square val)))
+            (check! values square val))))))
+
+;;check whether the elimination of a value from a square has caused contradiction or further assignment
+;;possibilities
+(defn check! [values s d]
+  (loop [u (units-for-squares s)] ;;for each row, column, and block associated with square s
+    (let [dplaces (for [s (first u) :when ((set (@values s)) d)] s)] ;;how many possible placings of d 
+
+      (if (= (count dplaces) 0) ;;if none then we've failed
+        false
+        (if (= (count dplaces) 1) ;;if only one, then that has to be the answer
+
+          (if (not (assign values (first dplaces) d)) ;;so we can assign it.
+            false
+            (if (not (empty? (rest u))) (recur (rest u)) values))
+          (if (not (empty? (rest u))) (recur (rest u)) values))))))
+
+;;*****************************************************************************
+;;                       OLD BRUTE FORCE APPROACH
+;;*****************************************************************************
 
 (defn get-possibilities-from-vec
   "Given a row vector, it will return the numbers from the possible values 
