@@ -5,7 +5,13 @@
             [clojure.core.reducers :as r])
   (:gen-class))
 
-(declare solve assign eliminate! check!)
+;; REFERENCES
+;; 1) Creator of the constraint propagation algorithm Peter Norig
+;;               https://norvig.com/sudoku.html
+;; 2) A translation of the algorithm to clojure (used certain parts)
+;;              http://www.learningclojure.com/2009/11/sudoku_24.html
+
+(declare solve assign eliminate check)
 
 ;;*****************************************************************************
 ;;                                  MAIN
@@ -84,7 +90,7 @@
     (if (every? (fn [[square digit]] 
                   (assign values square digit)) 
                 list-of-given)
-      values
+      @values
       false)))
 
 (defn assign
@@ -92,31 +98,29 @@
   (let [elimination-candidates (for [v (square @values)
                                      :when (not (= v assignment-val))] v)]
     (if (every?
-         #(eliminate! values square %) elimination-candidates)
-      values
+         #(eliminate values square %) elimination-candidates)
+      @values
       false)))
 
-(defn eliminate! [values square val]
+(defn eliminate [values square val]
   (if (not ((square @values) val)) values ;;if it's already not there nothing to do
-
       (do
         (swap! values assoc-in [square] (disj (square @values) val)) ;;remove it
         (if (= 0 (count (square @values))) ;;no possibilities left
-
           false                       ;;fail
           (if (= 1 (count (square @values))) ;; one possibility left
             (let [d2 (first (square @values))
                   square-list (for [s2 (square peers-for-squares)] s2)]
-              (if (not (every? #(eliminate! values % d2) square-list))
+              (if (not (every? #(eliminate values % d2) square-list))
                 false
-                (check! values square val)))
-            (check! values square val))))))
+                (check values square val)))
+            (check values square val))))))
 
-;;check whether the elimination of a value from a square has caused contradiction or further assignment
-;;possibilities
-(defn check! [values s d]
-  (loop [u (units-for-squares s)] ;;for each row, column, and block associated with square s
-    (let [dplaces (for [s (first u) :when ((set (@values s)) d)] s)] ;;how many possible placings of d 
+;;check whether the elimination of a value from a square has caused 
+;;contradiction or further assignment possibilities
+(defn check [values s d]
+  (loop [u (s units-for-squares)] ;;for each row, column, and block associated with square s
+    (let [dplaces (for [s (first u) :when ((s @values) d)] s)] ;;how many possible placings of d 
 
       (if (= (count dplaces) 0) ;;if none then we've failed
         false
@@ -126,6 +130,22 @@
             false
             (if (not (empty? (rest u))) (recur (rest u)) values))
           (if (not (empty? (rest u))) (recur (rest u)) values))))))
+
+(defn search
+  [board-state]
+  (if board-state
+  (if (every? #(= 1 (count (% board-state))) squares)
+    board-state       ;; every square only had one value so we found the solution!
+    (let [optimal-square
+          (second (first (sort     ;; which square has fewest choices?
+                          (for [s squares :when (> (count (s board-state)) 1)]
+                            [(count (s board-state)),s]))))]
+      (let [results (for [d (optimal-square board-state)]
+                      (do
+                        (search
+                         (assign (atom board-state) optimal-square d))))]
+        (some identity results))))
+    false))
 
 ;;*****************************************************************************
 ;;                       OLD BRUTE FORCE APPROACH
