@@ -11,7 +11,13 @@
 ;; 2) A translation of the algorithm to clojure (used certain parts)
 ;;              http://www.learningclojure.com/2009/11/sudoku_24.html
 
-(declare solve assign eliminate check)
+(declare solve 
+         assign 
+         eliminate 
+         check
+         format-board
+         search
+         parse-board-state)
 
 ;;*****************************************************************************
 ;;                                  MAIN
@@ -24,13 +30,21 @@
   (def input-board (:input (edn/read-string
                             (slurp "./board.edn"))))
 
-  (print "Input board: \n")
-  (pprint (input-board :input))
-
-
-  (print "Solving...This may take a couple of minutes \n")
-
-  (pprint (mapv vec (first (solve (input-board :input))))))
+  (println "Input board:")
+  (pprint input-board)
+  
+  (println "Pick solving method: ")
+  (println "1) Norvig CP (fast)")
+  (println "2) Brute force (slow)")
+  
+  (let [input (read-line)]
+    (cond (= input "1")
+          (pprint (format-board (search
+                                 (parse-board-state input-board))))
+          (= input "2")
+          (pprint (mapv vec (first (solve input-board))))
+          
+          :else (println "Invalid selection"))))
 
 ;;*****************************************************************************
 ;;                            HELPER FUNCTIONS
@@ -41,10 +55,11 @@
 (defn cross [A, B]
   (for [a A b B] (keyword (str a b))))
 
-;;Squares names that will become the keys in our board state map
+;; Squares names that will become the keys in our board state map
 (def squares (cross rows cols))
 
-;;units are the groups into which squares are grouped: rows, columns and subsquares
+;; units are the groups into which squares are grouped: 
+;; rows, columns and subsquares
 (def unitlist (map set (concat
                         (for [c cols] (cross rows [c]))
                         (for [r rows] (cross [r] cols))
@@ -146,6 +161,14 @@
                          (assign (atom board-state) optimal-square d))))]
         (some identity results))))
     false))
+
+(defn format-board
+  [board]
+  (let [sorted-values (vals (sort board))
+        raw-nums (r/reduce (fn [list s] (conj list (first s)))
+                           []
+                           sorted-values)]
+    (into [] (map vec (partition 9 raw-nums)))))
 
 ;;*****************************************************************************
 ;;                       OLD BRUTE FORCE APPROACH
