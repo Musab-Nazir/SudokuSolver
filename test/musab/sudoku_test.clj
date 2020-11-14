@@ -1,6 +1,7 @@
 (ns musab.sudoku-test
   (:require [clojure.test :refer :all]
-            [musab.sudoku :refer [solve solve-new]]))
+            [musab.sudoku :refer [format-board search parse-board-state]]
+            [musab.brute-force :refer [solve]]))
 
 (def default-boards
   {:1 {:board [[0 0 0  1 0 6  0 0 0]
@@ -50,11 +51,22 @@
                   [3 4 5  2 8 6  1 7 9]]}})
 
 (deftest a-test
-  (testing "Tests two examples."
+  (testing "Tests both algorithms."
+    ;; Test bruteforce
     (is (=
-         (mapv vec (first (solve-new (get-in default-boards [:1 :board]))))
+         (mapv vec (first (solve (get-in default-boards [:1 :board]))))
          (get-in default-boards [:1 :solution])))
 
     (is (=
-         (mapv vec (first (solve-new (get-in default-boards [:2 :board]))))
+         (mapv vec (first (solve (get-in default-boards [:2 :board]))))
+         (get-in default-boards [:2 :solution])))
+    ;; Test Norvig CP
+    (is (=
+         (format-board (search
+                        (parse-board-state (get-in default-boards [:1 :board]))))
+         (get-in default-boards [:1 :solution])))
+
+    (is (=
+         (format-board (search
+                        (parse-board-state (get-in default-boards [:2 :board]))))
          (get-in default-boards [:2 :solution])))))
