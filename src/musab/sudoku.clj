@@ -1,10 +1,24 @@
 (ns musab.sudoku
   (:require [clojure.set    :as cs]
             [clojure.pprint :refer [pprint]]
-            [clojure.edn    :as edn])
+            [clojure.edn    :as edn]
+            [clojure.core.reducers :as r]
+            ;; App specific
+            [musab.brute-force :refer [solve]])
   (:gen-class))
 
-(declare solve)
+;; REFERENCES
+;; 1) Creator of the constraint propagation algorithm Peter Norig
+;;               https://norvig.com/sudoku.html
+;; 2) A translation of the algorithm to clojure (used certain parts)
+;;              http://www.learningclojure.com/2009/11/sudoku_24.html
+
+(declare assign 
+         eliminate 
+         check
+         format-board
+         search
+         parse-board-state)
 
 ;;*****************************************************************************
 ;;                                  MAIN
@@ -14,92 +28,145 @@
   [& args]
   (println "Reading board.edn")
 
-  (def input-board (edn/read-string
-                    (slurp "./board.edn")))
+  (def input-board (:input (edn/read-string
+                            (slurp "./board.edn"))))
 
-  (print "Input board: \n")
-
-  (pprint (input-board :input))
-
-  (print "Solving...This may take a couple of minutes \n")
-
-  (pprint (mapv vec (first (solve (input-board :input))))))
+  (println "Input board:")
+  (pprint input-board)
+  
+  (println "Pick solving method: ")
+  (println "1) Norvig CP (fast)")
+  (println "2) Brute force (> 1000x slower)")
+  
+  (let [input (read-line)]
+    (cond (= input "1")
+          (pprint (format-board (search
+                                 (parse-board-state input-board))))
+          (= input "2")
+          (pprint (mapv vec (first (solve input-board))))
+          
+          :else (println "Invalid selection"))))
 
 ;;*****************************************************************************
 ;;                            HELPER FUNCTIONS
 ;;*****************************************************************************
-(defn get-possibilities-from-vec
-  "Given a row vector, it will return the numbers from the possible values 
-   that have not appeared in that row"
-  [vec]
-  (filterv (fn [num]
-             (not (some #{num} vec)))
-           (into [] (range 1 10))))
+(def rows "ABCDEFGHI")
+(def cols "123456789")
 
-(defn get-box-values
-  "Gets a flat vector for the box associated with the coord provided"
-  [[row-num col-num] board-state]
-  (let [row-range (cond
-                    (<= row-num 3) (range 0 3)
-                    (<= row-num 6) (range 3 6)
-                    (<= row-num 9) (range 6 9))
-        col-range (cond
-                    ;; Due to how subvec works the col ranges have n+1
-                    ;; as the last num in the range compared to rows
-                    (<= col-num 3) (range 0 4)
-                    (<= col-num 6) (range 3 7)
-                    (<= col-num 9) (range 6 10))
-        box (reduce
-             (fn [x row-index]
-               (concat x (subvec
-                          (nth board-state row-index)
-                          (first col-range)
-                          (last col-range))))
-             []
-             row-range)]
-    (into [] box)))
+(defn cross [A, B]
+  (for [a A b B] (keyword (str a b))))
 
-(defn get-valid-nums
-  "Given a row and col number returns a set of valid nums 
-   for that position if that position is free else returns 0"
-  [[row-num col-num] board-state]
-  (let [row (nth board-state (- row-num 1))
-        col (into []
-                  (mapv
-                   (fn [row]
-                     (nth row (- col-num 1)))
-                   board-state))
-        box-vals (get-box-values [row-num col-num] board-state)
-        current-num (nth row (- col-num 1))
-        row-set (into #{} (get-possibilities-from-vec row))
-        col-set (into #{} (get-possibilities-from-vec col))
-        box-set (into #{} (get-possibilities-from-vec box-vals))]
-    (if (= current-num 0)
-      (apply sorted-set (cs/intersection row-set col-set box-set))
-      #{})))
+;; Squares names that will become the keys in our board state map
+(def squares (cross rows cols))
 
-(defn possible-number?
-  "Checks if a provided number n is possible given a row and col position.
-   Uses get-valid-nums internally"
-  [[row-num col-num] n board-state]
-  (if (some #{n} (get-valid-nums [row-num col-num] board-state)) true false))
+;; units are the groups into which squares are grouped: 
+;; rows, columns and subsquares
+(def unitlist (map set (concat
+                        (for [c cols] (cross rows [c]))
+                        (for [r rows] (cross [r] cols))
+                        (for [rs (partition 3 rows)
+                              cs (partition 3 cols)] (cross rs cs)))))
 
-(defn get-first-blank-coords
-  "Get the coordinates of the first position on the board that is 0"
+(def units-for-squares
+  (let [starting-map (r/reduce
+                      (fn [working-map square-name]
+                        (assoc working-map square-name nil))
+                      {}
+                      squares)]
+    (r/reduce (fn
+                [m k]
+                (assoc m k
+                       (filterv
+                        #(contains? % k)
+                        unitlist)))
+              starting-map
+              squares)))
+
+(def peers-for-squares
+  (let [unit-map units-for-squares]
+    (r/reduce (fn [m k]
+                (assoc m k (disj (apply cs/union (k unit-map)) k)))
+              {}
+              squares)))
+
+(defn parse-board-state
   [board-state]
-  (first
-   (remove nil?
-           (map (fn [x]
-                  (if (= (get-in board-state x) 0) x))
-                (for [row (range 9)
-                      col (range 9)]
-                  [row col])))))
+  (let [board-vals (flatten board-state)
+        values (atom (r/reduce
+                  (fn [m square]
+                    (assoc m square (apply sorted-set
+                                      (into #{} (range 1 10)))))
+                  {}
+                  squares))
+        list-of-given (for [[square digit]
+                            (zipmap squares board-vals)
+                            :when ((into #{} (range 1 10)) digit)]
+                        [square digit])]
+    
+    (if (every? (fn [[square digit]] 
+                  (assign values square digit)) 
+                list-of-given)
+      @values
+      false)))
 
-(defn solve [board-state]
-  (let [[row col] (get-first-blank-coords board-state)]
-    ;; if no more 0 on the board we have a solution
-    ;; else we continue recursion
-    (if (or (nil? row) (nil? col))
-      (to-array board-state)
-      (flatten (mapv #(solve (assoc-in board-state [row col] %))
-            (get-valid-nums [(inc row) (inc col)] board-state))))))
+(defn assign
+  [values square assignment-val]
+  (let [elimination-candidates (for [v (square @values)
+                                     :when (not (= v assignment-val))] v)]
+    (if (every?
+         #(eliminate values square %) elimination-candidates)
+      @values
+      false)))
+
+(defn eliminate [values square val]
+  (if (not ((square @values) val)) values ;;if it's already not there nothing to do
+      (do
+        (swap! values assoc-in [square] (disj (square @values) val)) ;;remove it
+        (if (= 0 (count (square @values))) ;;no possibilities left
+          false                       ;;fail
+          (if (= 1 (count (square @values))) ;; one possibility left
+            (let [d2 (first (square @values))
+                  square-list (for [s2 (square peers-for-squares)] s2)]
+              (if (not (every? #(eliminate values % d2) square-list))
+                false
+                (check values square val)))
+            (check values square val))))))
+
+;;check whether the elimination of a value from a square has caused 
+;;contradiction or further assignment possibilities
+(defn check [values s d]
+  (loop [u (s units-for-squares)] ;;for each row, column, and block associated with square s
+    (let [dplaces (for [s (first u) :when ((s @values) d)] s)] ;;how many possible placings of d 
+
+      (if (= (count dplaces) 0) ;;if none then we've failed
+        false
+        (if (= (count dplaces) 1) ;;if only one, then that has to be the answer
+
+          (if (not (assign values (first dplaces) d)) ;;so we can assign it.
+            false
+            (if (not (empty? (rest u))) (recur (rest u)) values))
+          (if (not (empty? (rest u))) (recur (rest u)) values))))))
+
+(defn search
+  [board-state]
+  (if board-state
+  (if (every? #(= 1 (count (% board-state))) squares)
+    board-state       ;; every square only had one value so we found the solution!
+    (let [optimal-square
+          (second (first (sort     ;; which square has fewest choices?
+                          (for [s squares :when (> (count (s board-state)) 1)]
+                            [(count (s board-state)),s]))))]
+      (let [results (for [d (optimal-square board-state)]
+                      (do
+                        (search
+                         (assign (atom board-state) optimal-square d))))]
+        (some identity results))))
+    false))
+
+(defn format-board
+  [board]
+  (let [sorted-values (vals (sort board))
+        raw-nums (r/reduce (fn [list s] (conj list (first s)))
+                           []
+                           sorted-values)]
+    (into [] (map vec (partition 9 raw-nums)))))
