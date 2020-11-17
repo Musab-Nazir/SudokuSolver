@@ -3,6 +3,7 @@
             [clojure.pprint :refer [pprint]]
             [clojure.edn    :as edn]
             [clojure.core.reducers :as r]
+            [clojure.spec.alpha :as s]
             ;; App specific
             [musab.brute-force :refer [solve]])
   (:gen-class))
@@ -13,12 +14,14 @@
 ;; 2) A translation of the algorithm to clojure (used certain parts)
 ;;              http://www.learningclojure.com/2009/11/sudoku_24.html
 
-(declare assign 
-         eliminate 
-         check
+(declare eliminate 
          format-board
          search
-         parse-board-state)
+         parse-board-state
+         validate-puzzle)
+
+; Spec to validate the input board
+(s/def ::row (s/coll-of number? :kind vector? :count 9))
 
 ;;*****************************************************************************
 ;;                                  MAIN
@@ -33,19 +36,25 @@
 
   (println "Input board:")
   (pprint input-board)
-  
-  (println "Pick solving method: ")
-  (println "1) Norvig CP (fast)")
-  (println "2) Brute force (> 1000x slower)")
-  
-  (let [input (read-line)]
-    (cond (= input "1")
-          (pprint (format-board (search
-                                 (parse-board-state input-board))))
-          (= input "2")
-          (pprint (mapv vec (first (solve input-board))))
-          
-          :else (println "Invalid selection"))))
+
+  (if (and (nil? (validate-puzzle input-board))
+           (s/valid? (s/coll-of ::row) input-board))
+    (do
+      (println "Valid Puzzle detected")
+      (println "Pick solving method: ")
+      (println "1) Norvig CP (fast)")
+      (println "2) Brute force (> 1000x slower)")
+
+      (let [input (read-line)]
+        (cond (= input "1")
+              (pprint (format-board (search
+                                     (parse-board-state input-board))))
+              (= input "2")
+              (pprint (mapv vec (first (solve input-board))))
+
+              :else (println "Invalid selection"))))
+    ; else
+    (println "Invalid puzzle.")))
 
 ;;*****************************************************************************
 ;;                            HELPER FUNCTIONS
@@ -67,6 +76,7 @@
                         (for [rs (partition 3 rows)
                               cs (partition 3 cols)] (cross rs cs)))))
 
+;; Each square belongs to three units (row coloumn and the bigger square section)
 (def units-for-squares
   (let [starting-map (r/reduce
                       (fn [working-map square-name]
@@ -82,6 +92,7 @@
               starting-map
               squares)))
 
+;; Each of the squares within the shared unit is a 'peer' of one another
 (def peers-for-squares
   (let [unit-map units-for-squares]
     (r/reduce (fn [m k]
@@ -89,27 +100,28 @@
               {}
               squares)))
 
-(defn parse-board-state
+(defn get-list-of-given
+  "Returns a list of key value pairs of the given squares and their values"
   [board-state]
-  (let [board-vals (flatten board-state)
-        values (atom (r/reduce
-                  (fn [m square]
-                    (assoc m square (apply sorted-set
-                                      (into #{} (range 1 10)))))
-                  {}
-                  squares))
-        list-of-given (for [[square digit]
-                            (zipmap squares board-vals)
-                            :when ((into #{} (range 1 10)) digit)]
-                        [square digit])]
-    
-    (if (every? (fn [[square digit]] 
-                  (assign values square digit)) 
-                list-of-given)
-      @values
-      false)))
+  (for [[square digit]
+        (zipmap squares (flatten board-state))
+        :when ((into #{} (range 1 10)) digit)]
+    [square digit]))
+
+(defn validate-puzzle
+  "Looks for errors in the initial board state that make the puzzle invalid
+   Returns nil if the puzzle is valid"
+  [board-state]
+  (let [given (get-list-of-given board-state)
+        initial (zipmap squares (flatten board-state))
+        comparison-list (for [[square val] given
+                              peer-square (square peers-for-squares)]
+                          (= val (peer-square initial)))]
+    (some true? comparison-list)))
 
 (defn assign
+  "Attempts to assign a value to a square by eliminating it from its peers and
+   checking for conflicts."
   [values square assignment-val]
   (let [elimination-candidates (for [v (square @values)
                                      :when (not (= v assignment-val))] v)]
@@ -117,6 +129,23 @@
          #(eliminate values square %) elimination-candidates)
       @values
       false)))
+
+
+(defn check
+  "Check whether the elimination of a value from a square has caused 
+   contradiction or further assignment possibilities"
+  [values s d]
+  (loop [u (s units-for-squares)] ;;for each row, column, and block associated with square s
+    (let [dplaces (for [s (first u) :when ((s @values) d)] s)] ;;how many possible placings of d 
+
+      (if (= (count dplaces) 0) ;;if none then we've failed
+        false
+        (if (= (count dplaces) 1) ;;if only one, then that has to be the answer
+
+          (if (not (assign values (first dplaces) d)) ;;so we can assign it.
+            false
+            (if (not (empty? (rest u))) (recur (rest u)) values))
+          (if (not (empty? (rest u))) (recur (rest u)) values))))))
 
 (defn eliminate [values square val]
   (if (not ((square @values) val)) values ;;if it's already not there nothing to do
@@ -132,22 +161,26 @@
                 (check values square val)))
             (check values square val))))))
 
-;;check whether the elimination of a value from a square has caused 
-;;contradiction or further assignment possibilities
-(defn check [values s d]
-  (loop [u (s units-for-squares)] ;;for each row, column, and block associated with square s
-    (let [dplaces (for [s (first u) :when ((s @values) d)] s)] ;;how many possible placings of d 
+(defn parse-board-state
+  "Takes a 2d array representation of a board and returns a map with one pass of
+   constraints propagation applied"
+  [board-state]
+  (let [values (atom (r/reduce
+                      (fn [m square]
+                        (assoc m square (apply sorted-set
+                                               (into #{} (range 1 10)))))
+                      {}
+                      squares))
+        list-of-given (get-list-of-given board-state)]
 
-      (if (= (count dplaces) 0) ;;if none then we've failed
-        false
-        (if (= (count dplaces) 1) ;;if only one, then that has to be the answer
-
-          (if (not (assign values (first dplaces) d)) ;;so we can assign it.
-            false
-            (if (not (empty? (rest u))) (recur (rest u)) values))
-          (if (not (empty? (rest u))) (recur (rest u)) values))))))
+    (if (every? (fn [[square digit]]
+                  (assign values square digit))
+                list-of-given)
+      @values
+      false)))
 
 (defn search
+  "Recursively applies constraint propagation until a solution is found"
   [board-state]
   (if board-state
   (if (every? #(= 1 (count (% board-state))) squares)
@@ -164,6 +197,8 @@
     false))
 
 (defn format-board
+  "Takes a board map resulting from the search algorithm and transforms
+   it into a 2d array for display on the console"
   [board]
   (let [sorted-values (vals (sort board))
         raw-nums (r/reduce (fn [list s] (conj list (first s)))
